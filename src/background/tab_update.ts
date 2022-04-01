@@ -8,6 +8,7 @@ import { createContextMenus } from "./context_menus";
 import { updateIcon } from "./icon";
 import { Tab } from "../stores/reducers/time_tracking";
 import { Tabs } from "webextension-polyfill-ts";
+import fakeNews from "./fake_news";
 
 async function loadData(): Promise<Tab[]> {
   try {
@@ -46,6 +47,15 @@ export async function handleTabUpdate() {
   }
 
   const permissionsForSite = await getPermissions(activeTab.url as string);
+
+  // Fake url checking
+  const fakeUrls = await fakeNews.loadFakePages();
+  const isUrlFake = fakeUrls.some((url) => activeTab.url?.startsWith(url));
+  if (isUrlFake) {
+    // TODO: improve this notifiaction later
+    // The best way is to add warning on top of the page
+    alert("WARNING: This page may contain fake infromation!");
+  }
 
   updateIcon(permissionsForSite.length > 0);
   createContextMenus(permissionsForSite.length > 0);

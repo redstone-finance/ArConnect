@@ -9,7 +9,8 @@ import {
   ArrowSwitchIcon,
   ArchiveIcon,
   ChevronDownIcon,
-  ChevronUpIcon
+  ChevronUpIcon,
+  UnverifiedIcon
 } from "@primer/octicons-react";
 import { Loading, Spacer, Tabs, Tooltip, useTheme } from "@geist-ui/react";
 import { setAssets, setBalance } from "../../../stores/actions";
@@ -25,6 +26,7 @@ import axios from "axios";
 import PST from "./PST";
 import WalletManager from "../../../components/WalletManager";
 import Send from "./Send";
+import FakeReporting from "./FakeReporting";
 import Arweave from "arweave";
 import Verto from "@verto/lib";
 import arweaveLogo from "../../../assets/arweave.png";
@@ -295,7 +297,14 @@ export default function Home() {
               <span>Archive {currentTabContentType ?? "page"}</span>
             </div>
           </ArchiveWrapper>
-          <Tooltip text="Not available yet">
+
+          <div className={styles.Item} onClick={() => goTo(FakeReporting)}>
+            <UnverifiedIcon size={24} />
+            <span>Fake reports</span>
+          </div>
+
+          {/* Commented (it doesn't work anyway) */}
+          {/* <Tooltip text="Not available yet">
             <div
               className={
                 styles.Item + " " + styles.SwapItem + " " + styles.Unavailable
@@ -304,7 +313,7 @@ export default function Home() {
               <ArrowSwitchIcon size={24} />
               <span>Swap</span>
             </div>
-          </Tooltip>
+          </Tooltip> */}
         </div>
       </div>
       <Tabs initialValue="1" className={styles.Tabs}>
