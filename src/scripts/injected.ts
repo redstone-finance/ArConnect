@@ -146,9 +146,9 @@ const WalletAPI = {
     options?: SignatureOptions
   ): Promise<Transaction> {
     const arweave = new Arweave({
-      host: "arweave.net",
-      port: 443,
-      protocol: "https"
+      host: "testnet.redstone.tools", // Hostname or IP address for a Arweave host
+      port: 443, // Port
+      protocol: "https" // Network protocol http or https
     });
     // generate a unique ID for this transaction's chunks
     // since the transaction does not have an ID yet

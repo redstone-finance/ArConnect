@@ -1,49 +1,46 @@
 import React, { useEffect, useState } from "react";
 import { useSelector } from "react-redux";
 import { RootState } from "../../../stores/reducers";
-import {
-  Button,
-  Input,
-  Spacer,
-  useInput,
-  useToasts,
-  Tooltip,
-  Progress,
-  useTheme
-} from "@geist-ui/react";
-import { goTo } from "react-chrome-extension-router";
+import { Button, Input, useInput, useToasts, useTheme } from "@geist-ui/react";
 import { JWKInterface } from "arweave/node/lib/wallet";
-import { QuestionIcon, VerifiedIcon } from "@primer/octicons-react";
-import { arToFiat, getSymbol } from "../../../utils/currency";
-import { Threshold, getVerification } from "arverify";
-import { AnimatePresence, motion } from "framer-motion";
-import { checkPassword } from "../../../utils/auth";
-import manifest from "../../../../public/manifest.json";
-import Home from "./Home";
+import { VerifiedIcon } from "@primer/octicons-react";
+import { arToFiat } from "../../../utils/currency";
 import Arweave from "arweave";
 import axios from "axios";
 import WalletManager from "../../../components/WalletManager";
 import styles from "../../../styles/views/Popup/send.module.sass";
-import fakeNews, { ReportDetails } from "../../../background/fake_news";
+import fakeNews, { ContractState } from "../../../background/fake_news";
 import { getActiveTab } from "../../../utils/background";
+import { Contract, SmartWeave } from "redstone-smartweave";
 
-export default function FakeReporting() {
+export interface FakeReporting {
+  arweave: Arweave;
+  smartweave: SmartWeave;
+  fakeContractTxId: string;
+  contract: Contract;
+  addressKey: JWKInterface;
+}
+export default function FakeReporting({
+  arweave,
+  smartweave,
+  fakeContractTxId,
+  addressKey
+}: FakeReporting) {
   const targetInput = useInput(""),
     dsptTokenSymbol = "TRUTH",
     dsptTokensAmount = useInput(""),
-    [fakeReports, setFakeReports] = useState<ReportDetails[]>([]),
+    expirationBlock = useInput(""),
+    dsptStakeAmount = useInput(""),
     [currentTab, setCurrentTab] = useState<any>(null),
     [waitingForConfirmation, setWaitingForConfirmation] = useState(false),
     messageInput = useInput(""),
     arweaveConfig = useSelector((state: RootState) => state.arweave),
-    arweave = new Arweave(arweaveConfig),
+    // arweave = new Arweave(arweaveConfig),
     [fee, setFee] = useState("0"),
     profile = useSelector((state: RootState) => state.profile),
-    currentWallet = useSelector((state: RootState) => state.wallets).find(
-      ({ address }) => address === profile
-    )?.keyfile,
+    wallets = useSelector((state: RootState) => state.wallets),
+    currentWallet = wallets.find(({ address }) => address === profile),
     [tabUrl, setTabUrl] = useState<string | undefined>("https://google.com"),
-    [pageAlreadyReported, setPageAlreadyReported] = useState(false),
     [dsptBalance, setDsptBalance] = useState(0),
     [submitted, setSubmitted] = useState(false),
     [loading, setLoading] = useState(false),
@@ -54,23 +51,26 @@ export default function FakeReporting() {
       icon: string;
       percentage: number;
     }>(),
-    { arVerifyTreshold } = useSelector((state: RootState) => state.settings),
-    geistTheme = useTheme(),
-    passwordInput = useInput("");
+    contract: Contract<ContractState> = smartweave
+      .contract<ContractState>(fakeContractTxId)
+      .connect(addressKey),
+    [contractDisputes, setContractDisputes] = useState<any>([]),
+    [pageAlreadyReported, setPageAlreadyReported] = useState<boolean>(false),
+    [currentBlockHeight, setCurrentBlockHeight] = useState<number>(0);
   let { currency, feeMultiplier } = useSelector(
     (state: RootState) => state.settings
   );
 
   useEffect(() => {
+    fetchContractDisputes();
+    loadBlockHeight();
     loadDsptBalance();
-    loadFakeReports();
     loadActiveTab();
     // eslint-disable-next-line
   }, [profile]);
 
   useEffect(() => {
     calculateFee();
-    // checkVerification();
     // eslint-disable-next-line
   }, [targetInput.state, messageInput.state, profile]);
 
@@ -78,6 +78,10 @@ export default function FakeReporting() {
     calculateArPriceInCurrency();
     // eslint-disable-next-line
   }, [currency]);
+
+  useEffect(() => {
+    setPageAlreadyReported(contractDisputes.some((r: any) => r.key === tabUrl));
+  }, [tabUrl, contractDisputes]);
 
   async function calculateArPriceInCurrency() {
     setArPriceFiat(await arToFiat(1, currency));
@@ -92,35 +96,158 @@ export default function FakeReporting() {
     setTabUrl(shortUrl);
   }
 
-  // async function loadBalance() {
-  //   try {
-  //     const arBalance = arweave.ar.winstonToAr(
-  //       await arweave.wallets.getBalance(profile)
-  //     );
+  async function loadBlockHeight() {
+    const info = await arweave.network.getInfo();
+    const currentHeight = info.height;
+    setCurrentBlockHeight(currentHeight);
+  }
 
-  //     setBalance(arBalance);
-  //   } catch {}
-  // }
+  async function fetchContractDisputes() {
+    const result: any = await contract.readState();
+    const disputes = new Map(Object.entries(result.state.disputes));
+
+    setContractDisputes(
+      Array.from(disputes, ([key, value]) => ({ key, value }))
+    );
+
+    const res: any = (
+      await axios.get(
+        "https://cache.redstone.tools/testnet/cache/state/EVOOm6UheQRmlz4Nr5nH2IXIWn4aBPoLsR2Tm7lF0kg"
+      )
+    ).data;
+
+    console.log("state2", res.state);
+    const fakeUrls = await fakeNews.loadFakePages(res.state);
+    console.log("fakeUrls", fakeUrls);
+  }
 
   async function loadDsptBalance() {
     try {
-      const loadedDsptBalance = await fakeNews.getBalance(profile);
+      const loadedDsptBalance = await fakeNews.getBalance(
+        currentWallet?.address,
+        contract
+      );
       setDsptBalance(loadedDsptBalance);
     } catch {}
   }
 
-  async function loadFakeReports() {
-    const loadedFakeReports = await fakeNews.getReports(profile);
-    setFakeReports(loadedFakeReports);
-  }
-
-  async function buttonClickedInFakeReportSection() {
+  async function buttonClickedInFakeReportSection(
+    dsptTokensAmount: number,
+    expirationBlock: number
+  ) {
     if (waitingForConfirmation) {
-      // Confirmation received
-      // TODO: send transaction
+      if (dsptBalance < dsptTokensAmount) {
+        setToast({
+          type: "error",
+          text: "You need to mint some tokens first!"
+        });
+        return;
+      }
+      if (!expirationBlock) {
+        setToast({
+          type: "error",
+          text: "You need to type in expiration block"
+        });
+        return;
+      }
+      await fakeNews.reportPageAsFake(
+        tabUrl,
+        contract,
+        expirationBlock,
+        dsptTokensAmount
+      );
+      await arweave.api.get("mine");
+
+      await fetchContractDisputes();
+      setWaitingForConfirmation(false);
     } else {
       setWaitingForConfirmation(true);
     }
+  }
+
+  async function buttonClickedInVoteSection(
+    disputeIdx: number,
+    dsptStakeAmount: number,
+    selectedOptionIndex: number
+  ) {
+    let voted: boolean = false;
+    contractDisputes[disputeIdx].value.votes.forEach((v: any) => {
+      if (Object.keys(v.votes).includes(profile)) {
+        setToast({
+          type: "error",
+          text: "You've already voted for this dispute!"
+        });
+        voted = true;
+        return;
+      }
+    });
+    if (voted) {
+      return;
+    }
+    if (!dsptStakeAmount || !expirationBlock) {
+      setToast({
+        type: "error",
+        text: "You need to enter all required values"
+      });
+      return;
+    }
+
+    if (dsptBalance < dsptStakeAmount) {
+      setToast({ type: "error", text: "You need to mint some tokens first!" });
+      return;
+    }
+    const url = contractDisputes[disputeIdx].key;
+    await fakeNews.vote(url, contract, dsptStakeAmount, selectedOptionIndex);
+    await fetchContractDisputes();
+  }
+
+  async function buttonClickedInWithdrawRewardsSection(disputeIdx: number) {
+    let voted: number = 0;
+    contractDisputes[disputeIdx].value.votes.forEach((v: any) => {
+      if (Object.keys(v.votes).includes(profile)) {
+        voted++;
+        return;
+      }
+    });
+    if (!voted) {
+      setToast({
+        type: "error",
+        text: "You are not authorized to withdraw reward."
+      });
+      return;
+    }
+
+    if (
+      contractDisputes[disputeIdx].value.calculated &&
+      !contractDisputes[disputeIdx].value.withdrawableAmounts.hasOwnProperty(
+        profile
+      )
+    ) {
+      setToast({
+        type: "error",
+        text: "You've lost the dispute."
+      });
+      return;
+    }
+    if (
+      contractDisputes[disputeIdx].value.withdrawableAmounts.hasOwnProperty(
+        profile
+      ) &&
+      contractDisputes[disputeIdx].value.withdrawableAmounts[profile] == 0
+    ) {
+      setToast({
+        type: "error",
+        text: "You've already withdrawn your reward."
+      });
+      return;
+    }
+    const disputeId = contractDisputes[disputeIdx].key;
+    await fakeNews.withdrawRewards(contract, disputeId);
+    await fetchContractDisputes();
+    setToast({
+      type: "success",
+      text: `Your reward is: ${contractDisputes[disputeIdx].value.withdrawableAmounts[profile]}`
+    });
   }
 
   async function calculateFee() {
@@ -148,6 +275,10 @@ export default function FakeReporting() {
     marginBottom: "10px"
   };
 
+  const getVotesSum = (votes: object): number => {
+    const sum = Object.values(votes).reduce((a, c) => a + c, 0);
+    return sum;
+  };
   return (
     <>
       <WalletManager />
@@ -189,31 +320,88 @@ export default function FakeReporting() {
           </div>
 
           {/* Report page as fake */}
+          {pageAlreadyReported && (
+            <div
+              style={{
+                fontSize: "14px",
+                marginBottom: "10px",
+                textAlign: "center",
+                color: "grey"
+              }}
+            >
+              Page already reported, please join in the dispute below.
+              <br />
+              <div
+                style={{
+                  textOverflow: "ellipsis",
+                  overflow: "hidden",
+                  whiteSpace: "nowrap",
+                  maxWidth: "100%",
+                  fontWeight: "bold"
+                }}
+              >
+                {tabUrl}
+              </div>
+            </div>
+          )}
           {!pageAlreadyReported && (
             <div
               className="report-page-as-fake"
               style={{ ...subSectionStyles, color: "gray" }}
             >
-              <div style={{ fontSize: "14px", marginBottom: "10px" }}>
+              <div
+                style={{
+                  fontSize: "14px",
+                  marginBottom: "10px",
+                  textAlign: "center"
+                }}
+              >
                 Do you want to report this page as fake?
                 <br />
-                URL: <strong>{tabUrl}</strong>
+                <div
+                  style={{
+                    textOverflow: "ellipsis",
+                    overflow: "hidden",
+                    whiteSpace: "nowrap",
+                    maxWidth: "100%",
+                    fontWeight: "bold"
+                  }}
+                >
+                  {tabUrl}
+                </div>
               </div>
               {waitingForConfirmation && (
-                <div style={{ marginBottom: "10px" }}>
-                  <Input
-                    {...dsptTokensAmount.bindings}
-                    placeholder={`Initial stake amount`}
-                    labelRight={dsptTokenSymbol}
-                    htmlType="number"
-                    min="0"
-                  />
-                </div>
+                <>
+                  {" "}
+                  <div style={{ marginBottom: "10px" }}>
+                    <Input
+                      {...dsptTokensAmount.bindings}
+                      placeholder={`Initial stake amount`}
+                      labelRight={dsptTokenSymbol}
+                      htmlType="number"
+                      min="0"
+                    />
+                  </div>
+                  <div style={{ marginBottom: "10px" }}>
+                    <Input
+                      {...expirationBlock.bindings}
+                      placeholder={`Expiration blocks`}
+                      htmlType="number"
+                      min="0"
+                    />
+                  </div>
+                </>
               )}
+
               <Button
                 style={{ width: "100%", marginBottom: "10px" }}
                 type="success"
-                onClick={buttonClickedInFakeReportSection}
+                onClick={() =>
+                  buttonClickedInFakeReportSection(
+                    parseInt(dsptTokensAmount.state),
+                    parseInt(expirationBlock.state)
+                  )
+                }
                 loading={loading}
               >
                 {waitingForConfirmation ? "Confirm fake report" : "Report fake"}
@@ -223,26 +411,126 @@ export default function FakeReporting() {
 
           {/* Reports list */}
           <div className="fake-reports-list" style={{ ...subSectionStyles }}>
-            <h4>Fake reports</h4>
-            {fakeReports.map((report) => (
-              <div
-                style={{
-                  padding: "10px",
-                  borderRadius: "5px",
-                  marginBottom: "10px",
-                  color: "gray",
-                  fontSize: "14px",
-                  border: "1px solid #a99eec"
-                }}
-              >
-                URL: <strong>{report.url}</strong>
-                <br />
-                Votes (fake): <strong>{report.votesBalances.fake}</strong>
-                <br />
-                Votes (not fake):{" "}
-                <strong>{report.votesBalances.notFake}</strong>
-              </div>
-            ))}
+            <h4 style={{ textAlign: "center" }}>Fake reports</h4>
+            {contractDisputes &&
+              contractDisputes.map((dispute: any, disputeIdx: number) => (
+                <div
+                  style={{
+                    padding: "10px",
+                    borderRadius: "5px",
+                    marginBottom: "10px",
+                    color: "gray",
+                    fontSize: "14px",
+                    border: "1px solid #a99eec"
+                  }}
+                >
+                  <div
+                    style={{
+                      textOverflow: "ellipsis",
+                      overflow: "hidden",
+                      whiteSpace: "nowrap",
+                      maxWidth: "100%",
+                      fontWeight: "bold"
+                    }}
+                  >
+                    {dispute.key}
+                  </div>
+                  {dispute.value.votes.map((v: any, idx: any) => (
+                    <div>
+                      <hr />
+
+                      <div style={{ display: "flex" }}>
+                        <div
+                          style={{
+                            display: "flex",
+                            alignItems: "center",
+                            marginBottom: "10px",
+                            marginRight: "0.5rem"
+                          }}
+                        >
+                          <span style={{ textTransform: "uppercase" }}>
+                            {v.label}
+                          </span>
+                          :{" "}
+                          <strong style={{ marginLeft: "0.25rem" }}>
+                            {getVotesSum(v.votes)}
+                          </strong>
+                          <br />
+                        </div>
+                        {
+                          <>
+                            <div style={{ marginBottom: "10px" }}>
+                              <Input
+                                {...dsptStakeAmount.bindings}
+                                placeholder={`Amount`}
+                                labelRight={dsptTokenSymbol}
+                                htmlType="number"
+                                min="0"
+                              />
+                            </div>
+                          </>
+                        }
+                        <Button
+                          style={{
+                            minWidth: "auto",
+                            lineHeight: "inherit",
+                            height: "calc(2.5 * 14px)",
+                            marginBottom: "10px",
+                            marginLeft: "0.5rem"
+                          }}
+                          type="success"
+                          disabled={
+                            dispute.value.expirationBlock -
+                              currentBlockHeight <=
+                            0
+                          }
+                          onClick={() =>
+                            buttonClickedInVoteSection(
+                              disputeIdx,
+                              parseInt(dsptStakeAmount.state),
+                              idx
+                            )
+                          }
+                          loading={loading}
+                        >
+                          Vote
+                        </Button>
+                      </div>
+                    </div>
+                  ))}
+                  <div
+                    style={{
+                      display: "flex",
+                      justifyContent: "space-between"
+                    }}
+                  >
+                    <div style={{ alignItems: "center", display: "flex" }}>
+                      <span>Blocks till withdraw: </span>
+                      <strong style={{ marginLeft: "0.25rem" }}>
+                        {dispute.value.expirationBlock - currentBlockHeight < 0
+                          ? 0
+                          : dispute.value.expirationBlock - currentBlockHeight}
+                      </strong>
+                    </div>
+
+                    {
+                      <Button
+                        style={{ minWidth: "auto", marginBottom: "10px" }}
+                        type="success"
+                        disabled={
+                          dispute.value.expirationBlock - currentBlockHeight > 0
+                        }
+                        onClick={() =>
+                          buttonClickedInWithdrawRewardsSection(disputeIdx)
+                        }
+                        loading={loading}
+                      >
+                        Withdraw
+                      </Button>
+                    }
+                  </div>
+                </div>
+              ))}
           </div>
         </div>
       </div>

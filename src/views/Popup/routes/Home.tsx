@@ -33,11 +33,18 @@ import arweaveLogo from "../../../assets/arweave.png";
 import verto_light_logo from "../../../assets/verto_light.png";
 import verto_dark_logo from "../../../assets/verto_dark.png";
 import styles from "../../../styles/views/Popup/home.module.sass";
+import { SmartWeaveWebFactory } from "redstone-smartweave";
+import { getActiveKeyfile } from "../../../utils/background";
 
 export default function Home() {
   const arweaveConfig = useSelector((state: RootState) => state.arweave),
     storedBalances = useSelector((state: RootState) => state.balances),
-    arweave = new Arweave(arweaveConfig),
+    // arweave = new Arweave(arweaveConfig),
+    arweave = Arweave.init({
+      host: "testnet.redstone.tools",
+      port: 443,
+      protocol: "https"
+    }),
     profile = useSelector((state: RootState) => state.profile),
     psts = useSelector((state: RootState) => state.assets).find(
       ({ address }) => address === profile
@@ -56,16 +63,20 @@ export default function Home() {
     { scheme } = useColorScheme(),
     { currency } = useSelector((state: RootState) => state.settings),
     [arPriceInCurrency, setArPriceInCurrency] = useState(1),
+    [addressKey, setAddressKey] = useState<any>(),
     [loading, setLoading] = useState({ psts: true, txs: true }),
     [currentTabContentType, setCurrentTabContentType] = useState<
       "page" | "pdf" | undefined
-    >("page");
+    >("page"),
+    smartweave = SmartWeaveWebFactory.memCachedBased(arweave).build(),
+    fakeContractTxId = "EVOOm6UheQRmlz4Nr5nH2IXIWn4aBPoLsR2Tm7lF0kg";
 
   useEffect(() => {
     loadBalance();
     loadPSTs();
     loadTransactions();
     loadContentType();
+    loadPublicKey();
     // eslint-disable-next-line
   }, [profile]);
 
@@ -77,6 +88,10 @@ export default function Home() {
 
   async function calculateArPriceInCurrency() {
     setArPriceInCurrency(await arToFiat(1, currency));
+  }
+
+  async function loadPublicKey() {
+    setAddressKey((await getActiveKeyfile()).keyfile);
   }
 
   async function loadBalance() {
@@ -298,9 +313,19 @@ export default function Home() {
             </div>
           </ArchiveWrapper>
 
-          <div className={styles.Item} onClick={() => goTo(FakeReporting)}>
+          <div
+            className={styles.Item}
+            onClick={() => {
+              goTo(FakeReporting, {
+                arweave,
+                smartweave,
+                fakeContractTxId,
+                addressKey
+              });
+            }}
+          >
             <UnverifiedIcon size={24} />
-            <span>Fake reports</span>
+            <span>Fake reports lol test</span>
           </div>
 
           {/* Commented (it doesn't work anyway) */}
