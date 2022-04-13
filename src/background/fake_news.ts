@@ -2,7 +2,8 @@
 
 import Arweave from "arweave";
 import { Contract } from "redstone-smartweave";
-
+import axios from "axios";
+import { redstoneCache, fakeNewsContractId } from "../utils/constants";
 export interface Balance {
   balance: number;
   target: string;
@@ -66,13 +67,13 @@ async function reportPageAsFake(
   expBlock: number,
   dsptTokensAmount?: number
 ): Promise<void> {
-  await contract.writeInteraction({
+  await contract.bundleInteraction({
     function: "createDispute",
     createDispute: {
       id: url,
       title: url,
       description: url,
-      options: ["true", "false"],
+      options: ["fake", "legit"],
       expirationBlocks: expBlock,
       ...(dsptTokensAmount
         ? {
@@ -93,7 +94,7 @@ async function vote(
   dsptTokensAmount: number,
   selectedOptionIndex: number
 ): Promise<void> {
-  const result = await contract.writeInteraction({
+  await contract.bundleInteraction({
     function: "vote",
     vote: {
       id: url,
@@ -107,7 +108,7 @@ async function withdrawRewards(
   contract: Contract,
   dsptId: string
 ): Promise<void> {
-  await contract.writeInteraction({
+  await contract.bundleInteraction({
     function: "withdrawReward",
     withdrawReward: {
       id: dsptId
@@ -118,18 +119,21 @@ async function withdrawRewards(
 async function getReports(
   contract: Contract<any>
 ): Promise<{ key: string; value: Dispute }[]> {
-  const { state } = await contract.readState();
-  const disputes = Array.from(state.disputes, ([key, value]) => ({
+  const { data }: any = await axios.get(
+    `${redstoneCache}/cache/state/${fakeNewsContractId}`
+  );
+
+  const disputes = Array.from(data.state.disputes, ([key, value]) => ({
     key,
     value
   }));
-  console.log("repors", disputes);
   return disputes;
 }
 
 async function getBalance(
   address: string | undefined,
-  contract: Contract
+  contract: Contract,
+  divisibility: number
 ): Promise<number> {
   if (address) {
     const result = await contract.viewState<BalanceInput, any>({
@@ -141,25 +145,22 @@ async function getBalance(
     if (result.errorMessage) {
       return 0;
     }
-    return result.result.balances.balance;
+    return getRoundedTokens(result.result.balances.balance, divisibility);
   } else {
     setToast({ type: "error", text: "Could not recognize address" });
     return 0;
   }
 }
 
-async function loadFakePages(result: any) {
-  const disputes = new Map(Object.entries(result.disputes));
+export function getRoundedTokens(amount: number, divisibility: number): number {
+  return Math.round(amount / divisibility);
+}
 
-  const disputeArr = Array.from(disputes, ([key, value]) => ({ key, value }));
-
-  const fakePages: string[] = [];
-  disputeArr.forEach((d: any) => {
-    if ((d.value.winningOption = "true")) {
-      fakePages.push(d.key);
-    }
-  });
-  return fakePages;
+export function postMultipliedTokens(
+  amount: number,
+  divisibility: number
+): number {
+  return amount * divisibility;
 }
 
 export default {
@@ -169,11 +170,6 @@ export default {
   getReports,
   vote,
   withdrawRewards,
-  loadFakePages
+  getRoundedTokens,
+  postMultipliedTokens
 };
-function setToast(arg0: {
-  type: string;
-  text: string;
-}): number | PromiseLike<number> {
-  throw new Error("Function not implemented.");
-}

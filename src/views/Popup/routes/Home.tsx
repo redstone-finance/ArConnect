@@ -33,15 +33,21 @@ import arweaveLogo from "../../../assets/arweave.png";
 import verto_light_logo from "../../../assets/verto_light.png";
 import verto_dark_logo from "../../../assets/verto_dark.png";
 import styles from "../../../styles/views/Popup/home.module.sass";
-import { SmartWeaveWebFactory } from "redstone-smartweave";
+import {
+  MemCache,
+  RedstoneGatewayContractDefinitionLoader,
+  RedstoneGatewayInteractionsLoader,
+  SmartWeaveWebFactory
+} from "redstone-smartweave";
 import { getActiveKeyfile } from "../../../utils/background";
+import { fakeNewsContractId } from "../../../utils/constants";
 
 export default function Home() {
   const arweaveConfig = useSelector((state: RootState) => state.arweave),
     storedBalances = useSelector((state: RootState) => state.balances),
     // arweave = new Arweave(arweaveConfig),
     arweave = Arweave.init({
-      host: "testnet.redstone.tools",
+      host: "arweave.net",
       port: 443,
       protocol: "https"
     }),
@@ -68,8 +74,10 @@ export default function Home() {
     [currentTabContentType, setCurrentTabContentType] = useState<
       "page" | "pdf" | undefined
     >("page"),
-    smartweave = SmartWeaveWebFactory.memCachedBased(arweave).build(),
-    fakeContractTxId = "EVOOm6UheQRmlz4Nr5nH2IXIWn4aBPoLsR2Tm7lF0kg";
+    smartweave = SmartWeaveWebFactory.memCachedBased(arweave)
+      .useRedStoneGateway()
+      .build(),
+    fakeContractTxId = fakeNewsContractId;
 
   useEffect(() => {
     loadBalance();

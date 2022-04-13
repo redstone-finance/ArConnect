@@ -12,6 +12,8 @@ import styles from "../../../styles/views/Popup/send.module.sass";
 import fakeNews, { ContractState } from "../../../background/fake_news";
 import { getActiveTab } from "../../../utils/background";
 import { Contract, SmartWeave } from "redstone-smartweave";
+import { smartweave } from "smartweave";
+import { redstoneCache, fakeNewsContractId } from "../../../utils/constants";
 
 export interface FakeReporting {
   arweave: Arweave;
@@ -56,6 +58,14 @@ export default function FakeReporting({
       .connect(addressKey),
     [contractDisputes, setContractDisputes] = useState<any>([]),
     [pageAlreadyReported, setPageAlreadyReported] = useState<boolean>(false),
+    [divisibility, setDivisibility] = useState<number>(0),
+    [value, setValue] = useState<any>({}),
+    handler = (e: any, dsptIdx: number, idx: number) => {
+      setValue({
+        ...value,
+        [2 * dsptIdx + idx]: e.target.value
+      });
+    },
     [currentBlockHeight, setCurrentBlockHeight] = useState<number>(0);
   let { currency, feeMultiplier } = useSelector(
     (state: RootState) => state.settings
@@ -64,7 +74,6 @@ export default function FakeReporting({
   useEffect(() => {
     fetchContractDisputes();
     loadBlockHeight();
-    loadDsptBalance();
     loadActiveTab();
     // eslint-disable-next-line
   }, [profile]);
@@ -103,29 +112,27 @@ export default function FakeReporting({
   }
 
   async function fetchContractDisputes() {
-    const result: any = await contract.readState();
-    const disputes = new Map(Object.entries(result.state.disputes));
+    const { data }: any = await axios.get(
+      `${redstoneCache}/cache/state/${fakeNewsContractId}`
+    );
+    const divisibility = data.state.divisibility;
+    const disputes = new Map(Object.entries(data.state.disputes));
+
+    setDivisibility(divisibility);
 
     setContractDisputes(
       Array.from(disputes, ([key, value]) => ({ key, value }))
     );
 
-    const res: any = (
-      await axios.get(
-        "https://cache.redstone.tools/testnet/cache/state/EVOOm6UheQRmlz4Nr5nH2IXIWn4aBPoLsR2Tm7lF0kg"
-      )
-    ).data;
-
-    console.log("state2", res.state);
-    const fakeUrls = await fakeNews.loadFakePages(res.state);
-    console.log("fakeUrls", fakeUrls);
+    await loadDsptBalance(divisibility);
   }
 
-  async function loadDsptBalance() {
+  async function loadDsptBalance(divisibility: number) {
     try {
       const loadedDsptBalance = await fakeNews.getBalance(
         currentWallet?.address,
-        contract
+        contract,
+        divisibility
       );
       setDsptBalance(loadedDsptBalance);
     } catch {}
@@ -154,9 +161,8 @@ export default function FakeReporting({
         tabUrl,
         contract,
         expirationBlock,
-        dsptTokensAmount
+        fakeNews.postMultipliedTokens(dsptTokensAmount, divisibility)
       );
-      await arweave.api.get("mine");
 
       await fetchContractDisputes();
       setWaitingForConfirmation(false);
@@ -167,9 +173,10 @@ export default function FakeReporting({
 
   async function buttonClickedInVoteSection(
     disputeIdx: number,
-    dsptStakeAmount: number,
+    dsptStakeAmountState: number,
     selectedOptionIndex: number
   ) {
+    console.log(dsptStakeAmountState);
     let voted: boolean = false;
     contractDisputes[disputeIdx].value.votes.forEach((v: any) => {
       if (Object.keys(v.votes).includes(profile)) {
@@ -192,13 +199,20 @@ export default function FakeReporting({
       return;
     }
 
-    if (dsptBalance < dsptStakeAmount) {
+    if (dsptBalance < dsptStakeAmountState) {
       setToast({ type: "error", text: "You need to mint some tokens first!" });
       return;
     }
     const url = contractDisputes[disputeIdx].key;
-    await fakeNews.vote(url, contract, dsptStakeAmount, selectedOptionIndex);
+    await fakeNews.vote(
+      url,
+      contract,
+      fakeNews.postMultipliedTokens(dsptStakeAmountState, divisibility),
+      selectedOptionIndex
+    );
+
     await fetchContractDisputes();
+    dsptStakeAmount.reset();
   }
 
   async function buttonClickedInWithdrawRewardsSection(disputeIdx: number) {
@@ -243,7 +257,10 @@ export default function FakeReporting({
     }
     const disputeId = contractDisputes[disputeIdx].key;
     await fakeNews.withdrawRewards(contract, disputeId);
+
     await fetchContractDisputes();
+    console.log("dispute", contractDisputes[disputeIdx]);
+    await loadDsptBalance(divisibility);
     setToast({
       type: "success",
       text: `Your reward is: ${contractDisputes[disputeIdx].value.withdrawableAmounts[profile]}`
@@ -276,9 +293,15 @@ export default function FakeReporting({
   };
 
   const getVotesSum = (votes: object): number => {
-    const sum = Object.values(votes).reduce((a, c) => a + c, 0);
+    const sum = Object.values(votes).reduce(
+      (a, c) =>
+        fakeNews.getRoundedTokens(a, divisibility) +
+        fakeNews.getRoundedTokens(c, divisibility),
+      0
+    );
     return sum;
   };
+
   return (
     <>
       <WalletManager />
@@ -445,7 +468,8 @@ export default function FakeReporting({
                             display: "flex",
                             alignItems: "center",
                             marginBottom: "10px",
-                            marginRight: "0.5rem"
+                            marginRight: "0.5rem",
+                            width: "20%"
                           }}
                         >
                           <span style={{ textTransform: "uppercase" }}>
@@ -461,7 +485,12 @@ export default function FakeReporting({
                           <>
                             <div style={{ marginBottom: "10px" }}>
                               <Input
-                                {...dsptStakeAmount.bindings}
+                                value={
+                                  value[2 * disputeIdx + idx]
+                                    ? value[2 * disputeIdx + idx]
+                                    : ""
+                                }
+                                onChange={(e) => handler(e, disputeIdx, idx)}
                                 placeholder={`Amount`}
                                 labelRight={dsptTokenSymbol}
                                 htmlType="number"
@@ -487,7 +516,7 @@ export default function FakeReporting({
                           onClick={() =>
                             buttonClickedInVoteSection(
                               disputeIdx,
-                              parseInt(dsptStakeAmount.state),
+                              parseInt(value[2 * disputeIdx + idx]),
                               idx
                             )
                           }
