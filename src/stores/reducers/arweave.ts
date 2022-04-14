@@ -10,9 +10,9 @@ export interface IArweaveAction {
 }
 
 export const defaultConfig: IArweave = {
-  host: "arweave.net", // Hostname or IP address for a Arweave host
-  port: 443, // Port
-  protocol: "https" // Network protocol http or https
+  host: "arweave.net",
+  port: 443,
+  protocol: "https"
 };
 
 export default function arweaveReducer(

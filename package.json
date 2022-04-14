@@ -32,6 +32,7 @@
     "copy-to-clipboard": "^3.3.1",
     "crypto-es": "^1.2.7",
     "dayjs": "^1.10.4",
+    "esbuild-plugin-postcss2": "^0.1.2",
     "exchange-rates-api": "^1.0.2",
     "extensionizer": "^1.0.1",
     "framer-motion": "^3.10.6",
@@ -55,7 +56,7 @@
   },
   "devDependencies": {
     "@esbuild-plugins/node-globals-polyfill": "^0.1.1",
-    "@esbuild-plugins/node-modules-polyfill": "^0.1.4",
+    "@esbuild-plugins/node-modules-polyfill": "^0.1.2",
     "@types/bcryptjs": "^2.4.2",
     "@types/exchange-rates-api": "^1.0.0",
     "@types/jest": "^27.0.2",
