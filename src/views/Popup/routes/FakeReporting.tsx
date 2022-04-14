@@ -126,7 +126,6 @@ export default function FakeReporting({
     } else {
       const loadedDsptBalance = await fakeNews.getBalance(
         currentWallet.address,
-        contract,
         divisibility
       );
       setDsptBalance(loadedDsptBalance);

@@ -1,28 +1,6 @@
+import axios from "axios";
 import { Contract } from "redstone-smartweave";
-export interface Balance {
-  balances: Balances;
-  target: string;
-  ticker: string;
-}
-
-interface Balances {
-  balance: number;
-}
-interface BalanceInput {
-  function: string;
-  balance: {
-    target: string;
-  };
-}
-
-export interface ReportDetails {
-  url: string;
-  votesBalances: {
-    fake: number;
-    notFake: number;
-  };
-  canUserVote: boolean;
-}
+import { fakeNewsContractId, redstoneCache } from "../utils/constants";
 
 export interface ContractState {
   balances: Map<string, number>;
@@ -107,19 +85,16 @@ async function withdrawRewards(
 
 async function getBalance(
   address: string,
-  contract: Contract,
   divisibility: number
 ): Promise<number> {
-  const result = await contract.viewState<BalanceInput, Balance>({
-    function: "balance",
-    balance: {
-      target: address
-    }
-  });
-  if (result.errorMessage) {
+  const { data }: any = await axios.get(
+    `${redstoneCache}/cache/state/${fakeNewsContractId}`
+  );
+  const balance = data.state.balances[address];
+  if (!balance) {
     return 0;
   }
-  return getRoundedTokens(result.result.balances.balance, divisibility);
+  return getRoundedTokens(balance, divisibility);
 }
 
 export function getRoundedTokens(amount: number, divisibility: number): number {
