@@ -333,7 +333,7 @@ export default function Home() {
             }}
           >
             <UnverifiedIcon size={24} />
-            <span>Fake reports lol test</span>
+            <span>Fake reports</span>
           </div>
 
           {/* Commented (it doesn't work anyway) */}

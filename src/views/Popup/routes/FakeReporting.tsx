@@ -1,18 +1,26 @@
 import React, { useEffect, useState } from "react";
 import { useSelector } from "react-redux";
 import { RootState } from "../../../stores/reducers";
-import { Button, Input, useInput, useToasts, useTheme } from "@geist-ui/react";
+import {
+  Button,
+  Input,
+  Loading,
+  Spacer,
+  useInput,
+  useToasts
+} from "@geist-ui/react";
 import { JWKInterface } from "arweave/node/lib/wallet";
 import { VerifiedIcon } from "@primer/octicons-react";
-import { arToFiat } from "../../../utils/currency";
 import Arweave from "arweave";
 import axios from "axios";
 import WalletManager from "../../../components/WalletManager";
 import styles from "../../../styles/views/Popup/send.module.sass";
-import fakeNews, { ContractState } from "../../../background/fake_news";
+import fakeNews, {
+  ContractState,
+  VoteOption
+} from "../../../background/fake_news";
 import { getActiveTab } from "../../../utils/background";
 import { Contract, SmartWeave } from "redstone-smartweave";
-import { smartweave } from "smartweave";
 import { redstoneCache, fakeNewsContractId } from "../../../utils/constants";
 
 export interface FakeReporting {
@@ -22,33 +30,26 @@ export interface FakeReporting {
   contract: Contract;
   addressKey: JWKInterface;
 }
+
 export default function FakeReporting({
   arweave,
   smartweave,
   fakeContractTxId,
   addressKey
 }: FakeReporting) {
-  const targetInput = useInput(""),
-    dsptTokenSymbol = "TRUTH",
+  const dsptTokenSymbol = "TRUTH",
     dsptTokensAmount = useInput(""),
     expirationBlock = useInput(""),
     dsptStakeAmount = useInput(""),
-    [currentTab, setCurrentTab] = useState<any>(null),
     [waitingForConfirmation, setWaitingForConfirmation] = useState(false),
-    messageInput = useInput(""),
-    arweaveConfig = useSelector((state: RootState) => state.arweave),
-    // arweave = new Arweave(arweaveConfig),
-    [fee, setFee] = useState("0"),
     profile = useSelector((state: RootState) => state.profile),
     wallets = useSelector((state: RootState) => state.wallets),
     currentWallet = wallets.find(({ address }) => address === profile),
     [tabUrl, setTabUrl] = useState<string | undefined>("https://google.com"),
     [dsptBalance, setDsptBalance] = useState(0),
-    [submitted, setSubmitted] = useState(false),
-    [loading, setLoading] = useState(false),
+    [loading, setLoading] = useState({ disputes: true, balance: true }),
     [, setToast] = useToasts(),
-    [arPriceFiat, setArPriceFiat] = useState(1),
-    [verified, setVerified] = useState<{
+    [verified] = useState<{
       verified: boolean;
       icon: string;
       percentage: number;
@@ -56,7 +57,9 @@ export default function FakeReporting({
     contract: Contract<ContractState> = smartweave
       .contract<ContractState>(fakeContractTxId)
       .connect(addressKey),
-    [contractDisputes, setContractDisputes] = useState<any>([]),
+    [contractDisputes, setContractDisputes] = useState<
+      { key: string; value: any }[]
+    >([]),
     [pageAlreadyReported, setPageAlreadyReported] = useState<boolean>(false),
     [divisibility, setDivisibility] = useState<number>(0),
     [value, setValue] = useState<any>({}),
@@ -67,9 +70,6 @@ export default function FakeReporting({
       });
     },
     [currentBlockHeight, setCurrentBlockHeight] = useState<number>(0);
-  let { currency, feeMultiplier } = useSelector(
-    (state: RootState) => state.settings
-  );
 
   useEffect(() => {
     fetchContractDisputes();
@@ -79,26 +79,15 @@ export default function FakeReporting({
   }, [profile]);
 
   useEffect(() => {
-    calculateFee();
-    // eslint-disable-next-line
-  }, [targetInput.state, messageInput.state, profile]);
-
-  useEffect(() => {
-    calculateArPriceInCurrency();
-    // eslint-disable-next-line
-  }, [currency]);
-
-  useEffect(() => {
-    setPageAlreadyReported(contractDisputes.some((r: any) => r.key === tabUrl));
+    setPageAlreadyReported(
+      contractDisputes.some(
+        (r: { key: string; value: object }) => r.key === tabUrl
+      )
+    );
   }, [tabUrl, contractDisputes]);
-
-  async function calculateArPriceInCurrency() {
-    setArPriceFiat(await arToFiat(1, currency));
-  }
 
   async function loadActiveTab() {
     const currentTab = await getActiveTab();
-    setCurrentTab(currentTab);
     const shortUrl = currentTab.url
       ? currentTab.url.split("?")[0]
       : currentTab.url;
@@ -123,19 +112,26 @@ export default function FakeReporting({
     setContractDisputes(
       Array.from(disputes, ([key, value]) => ({ key, value }))
     );
-
+    setLoading((val) => ({ ...val, disputes: false }));
     await loadDsptBalance(divisibility);
   }
 
   async function loadDsptBalance(divisibility: number) {
-    try {
+    if (!currentWallet) {
+      setToast({
+        type: "error",
+        text: "No address specified."
+      });
+      return;
+    } else {
       const loadedDsptBalance = await fakeNews.getBalance(
-        currentWallet?.address,
+        currentWallet.address,
         contract,
         divisibility
       );
       setDsptBalance(loadedDsptBalance);
-    } catch {}
+      setLoading((val) => ({ ...val, balance: false }));
+    }
   }
 
   async function buttonClickedInFakeReportSection(
@@ -157,6 +153,14 @@ export default function FakeReporting({
         });
         return;
       }
+      if (!tabUrl) {
+        setToast({
+          type: "error",
+          text: "No url available."
+        });
+        return;
+      }
+
       await fakeNews.reportPageAsFake(
         tabUrl,
         contract,
@@ -176,9 +180,8 @@ export default function FakeReporting({
     dsptStakeAmountState: number,
     selectedOptionIndex: number
   ) {
-    console.log(dsptStakeAmountState);
     let voted: boolean = false;
-    contractDisputes[disputeIdx].value.votes.forEach((v: any) => {
+    contractDisputes[disputeIdx].value.votes.forEach((v: VoteOption) => {
       if (Object.keys(v.votes).includes(profile)) {
         setToast({
           type: "error",
@@ -217,7 +220,7 @@ export default function FakeReporting({
 
   async function buttonClickedInWithdrawRewardsSection(disputeIdx: number) {
     let voted: number = 0;
-    contractDisputes[disputeIdx].value.votes.forEach((v: any) => {
+    contractDisputes[disputeIdx].value.votes.forEach((v: VoteOption) => {
       if (Object.keys(v.votes).includes(profile)) {
         voted++;
         return;
@@ -259,32 +262,11 @@ export default function FakeReporting({
     await fakeNews.withdrawRewards(contract, disputeId);
 
     await fetchContractDisputes();
-    console.log("dispute", contractDisputes[disputeIdx]);
     await loadDsptBalance(divisibility);
     setToast({
       type: "success",
       text: `Your reward is: ${contractDisputes[disputeIdx].value.withdrawableAmounts[profile]}`
     });
-  }
-
-  async function calculateFee() {
-    try {
-      const messageSize = new TextEncoder().encode(messageInput.state).length,
-        { data } = await axios.get(
-          `https://arweave.net/price/${messageSize}/${targetInput.state}`
-        );
-      if (
-        feeMultiplier < 1 ||
-        feeMultiplier === undefined ||
-        feeMultiplier === null
-      )
-        feeMultiplier = 1;
-      setFee(
-        arweave.ar.winstonToAr(
-          (parseFloat(data as string) * feeMultiplier).toFixed(0)
-        )
-      );
-    } catch {}
   }
 
   const subSectionStyles = {
@@ -313,22 +295,26 @@ export default function FakeReporting({
               : ""
           }
         >
-          {/* Balance for disputes */}
           <div
             className="dspt-balance"
             style={{ textAlign: "center", ...subSectionStyles }}
           >
             <h2 style={{ marginBottom: "0px" }}>
-              {dsptBalance} {dsptTokenSymbol}
-              <span
-                style={{
-                  position: "relative",
-                  left: "5px",
-                  bottom: "8px"
-                }}
-              >
-                <VerifiedIcon size={26} />
-              </span>
+              {loading.balance && <Loading />}
+              {!loading.balance && (
+                <>
+                  <span>{dsptBalance}</span> <span>{dsptTokenSymbol}</span>
+                  <span
+                    style={{
+                      position: "relative",
+                      left: "5px",
+                      bottom: "8px"
+                    }}
+                  >
+                    <VerifiedIcon size={26} />
+                  </span>
+                </>
+              )}
             </h2>
             <div
               style={{
@@ -342,7 +328,6 @@ export default function FakeReporting({
             </div>
           </div>
 
-          {/* Report page as fake */}
           {pageAlreadyReported && (
             <div
               style={{
@@ -425,7 +410,6 @@ export default function FakeReporting({
                     parseInt(expirationBlock.state)
                   )
                 }
-                loading={loading}
               >
                 {waitingForConfirmation ? "Confirm fake report" : "Report fake"}
               </Button>
@@ -435,131 +419,141 @@ export default function FakeReporting({
           {/* Reports list */}
           <div className="fake-reports-list" style={{ ...subSectionStyles }}>
             <h4 style={{ textAlign: "center" }}>Fake reports</h4>
+            {loading.disputes && (
+              <>
+                <Spacer h={0.5} />
+                <Loading />
+                <Spacer h={1.25} />
+              </>
+            )}
             {contractDisputes &&
-              contractDisputes.map((dispute: any, disputeIdx: number) => (
-                <div
-                  style={{
-                    padding: "10px",
-                    borderRadius: "5px",
-                    marginBottom: "10px",
-                    color: "gray",
-                    fontSize: "14px",
-                    border: "1px solid #a99eec"
-                  }}
-                >
+              contractDisputes.map(
+                (dispute: { key: string; value: any }, disputeIdx: number) => (
                   <div
                     style={{
-                      textOverflow: "ellipsis",
-                      overflow: "hidden",
-                      whiteSpace: "nowrap",
-                      maxWidth: "100%",
-                      fontWeight: "bold"
+                      padding: "10px",
+                      borderRadius: "5px",
+                      marginBottom: "10px",
+                      color: "gray",
+                      fontSize: "14px",
+                      border: "1px solid #a99eec"
                     }}
                   >
-                    {dispute.key}
-                  </div>
-                  {dispute.value.votes.map((v: any, idx: any) => (
-                    <div>
-                      <hr />
+                    <div
+                      style={{
+                        textOverflow: "ellipsis",
+                        overflow: "hidden",
+                        whiteSpace: "nowrap",
+                        maxWidth: "100%",
+                        fontWeight: "bold"
+                      }}
+                    >
+                      {dispute.key}
+                    </div>
+                    {dispute.value.votes.map((v: VoteOption, idx: number) => (
+                      <div>
+                        <hr />
 
-                      <div style={{ display: "flex" }}>
-                        <div
-                          style={{
-                            display: "flex",
-                            alignItems: "center",
-                            marginBottom: "10px",
-                            marginRight: "0.5rem",
-                            width: "20%"
-                          }}
-                        >
-                          <span style={{ textTransform: "uppercase" }}>
-                            {v.label}
-                          </span>
-                          :{" "}
-                          <strong style={{ marginLeft: "0.25rem" }}>
-                            {getVotesSum(v.votes)}
-                          </strong>
-                          <br />
+                        <div style={{ display: "flex" }}>
+                          <div
+                            style={{
+                              display: "flex",
+                              alignItems: "center",
+                              marginBottom: "10px",
+                              marginRight: "0.5rem",
+                              width: "20%"
+                            }}
+                          >
+                            <span style={{ textTransform: "uppercase" }}>
+                              {v.label}
+                            </span>
+                            :{" "}
+                            <strong style={{ marginLeft: "0.25rem" }}>
+                              {getVotesSum(v.votes)}
+                            </strong>
+                            <br />
+                          </div>
+                          {
+                            <>
+                              <div style={{ marginBottom: "10px" }}>
+                                <Input
+                                  value={
+                                    value[2 * disputeIdx + idx]
+                                      ? value[2 * disputeIdx + idx]
+                                      : ""
+                                  }
+                                  onChange={(e) => handler(e, disputeIdx, idx)}
+                                  placeholder={`Amount`}
+                                  labelRight={dsptTokenSymbol}
+                                  htmlType="number"
+                                  min="0"
+                                />
+                              </div>
+                            </>
+                          }
+                          <Button
+                            style={{
+                              minWidth: "auto",
+                              lineHeight: "inherit",
+                              height: "calc(2.5 * 14px)",
+                              marginBottom: "10px",
+                              marginLeft: "0.5rem"
+                            }}
+                            type="success"
+                            disabled={
+                              dispute.value.expirationBlock -
+                                currentBlockHeight <=
+                              0
+                            }
+                            onClick={() =>
+                              buttonClickedInVoteSection(
+                                disputeIdx,
+                                parseInt(value[2 * disputeIdx + idx]),
+                                idx
+                              )
+                            }
+                          >
+                            Vote
+                          </Button>
                         </div>
-                        {
-                          <>
-                            <div style={{ marginBottom: "10px" }}>
-                              <Input
-                                value={
-                                  value[2 * disputeIdx + idx]
-                                    ? value[2 * disputeIdx + idx]
-                                    : ""
-                                }
-                                onChange={(e) => handler(e, disputeIdx, idx)}
-                                placeholder={`Amount`}
-                                labelRight={dsptTokenSymbol}
-                                htmlType="number"
-                                min="0"
-                              />
-                            </div>
-                          </>
-                        }
+                      </div>
+                    ))}
+                    <div
+                      style={{
+                        display: "flex",
+                        justifyContent: "space-between"
+                      }}
+                    >
+                      <div style={{ alignItems: "center", display: "flex" }}>
+                        <span>Blocks till withdraw: </span>
+                        <strong style={{ marginLeft: "0.25rem" }}>
+                          {dispute.value.expirationBlock - currentBlockHeight <
+                          0
+                            ? 0
+                            : dispute.value.expirationBlock -
+                              currentBlockHeight}
+                        </strong>
+                      </div>
+
+                      {
                         <Button
-                          style={{
-                            minWidth: "auto",
-                            lineHeight: "inherit",
-                            height: "calc(2.5 * 14px)",
-                            marginBottom: "10px",
-                            marginLeft: "0.5rem"
-                          }}
+                          style={{ minWidth: "auto", marginBottom: "10px" }}
                           type="success"
                           disabled={
-                            dispute.value.expirationBlock -
-                              currentBlockHeight <=
+                            dispute.value.expirationBlock - currentBlockHeight >
                             0
                           }
                           onClick={() =>
-                            buttonClickedInVoteSection(
-                              disputeIdx,
-                              parseInt(value[2 * disputeIdx + idx]),
-                              idx
-                            )
+                            buttonClickedInWithdrawRewardsSection(disputeIdx)
                           }
-                          loading={loading}
                         >
-                          Vote
+                          Withdraw
                         </Button>
-                      </div>
+                      }
                     </div>
-                  ))}
-                  <div
-                    style={{
-                      display: "flex",
-                      justifyContent: "space-between"
-                    }}
-                  >
-                    <div style={{ alignItems: "center", display: "flex" }}>
-                      <span>Blocks till withdraw: </span>
-                      <strong style={{ marginLeft: "0.25rem" }}>
-                        {dispute.value.expirationBlock - currentBlockHeight < 0
-                          ? 0
-                          : dispute.value.expirationBlock - currentBlockHeight}
-                      </strong>
-                    </div>
-
-                    {
-                      <Button
-                        style={{ minWidth: "auto", marginBottom: "10px" }}
-                        type="success"
-                        disabled={
-                          dispute.value.expirationBlock - currentBlockHeight > 0
-                        }
-                        onClick={() =>
-                          buttonClickedInWithdrawRewardsSection(disputeIdx)
-                        }
-                        loading={loading}
-                      >
-                        Withdraw
-                      </Button>
-                    }
                   </div>
-                </div>
-              ))}
+                )
+              )}
           </div>
         </div>
       </div>

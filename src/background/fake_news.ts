@@ -1,15 +1,13 @@
-// TODO: this module should be updated with real implementation
-
-import Arweave from "arweave";
 import { Contract } from "redstone-smartweave";
-import axios from "axios";
-import { redstoneCache, fakeNewsContractId } from "../utils/constants";
 export interface Balance {
-  balance: number;
+  balances: Balances;
   target: string;
   ticker: string;
 }
 
+interface Balances {
+  balance: number;
+}
 interface BalanceInput {
   function: string;
   balance: {
@@ -28,6 +26,7 @@ export interface ReportDetails {
 
 export interface ContractState {
   balances: Map<string, number>;
+  divisibility: number;
   canEvolve: boolean;
   evolve: string | null;
   name: string;
@@ -52,17 +51,8 @@ export interface VoteOption {
   votes: Map<string, number>;
 }
 
-async function isPageAlreadyReported(
-  url: string,
-  contract: Contract<ContractState>
-): Promise<boolean> {
-  const reports = await getReports(contract);
-  return reports.some((r) => r.key === url);
-}
-
-// It will send a SmartWeave transaction
 async function reportPageAsFake(
-  url: string | undefined,
+  url: string,
   contract: Contract,
   expBlock: number,
   dsptTokensAmount?: number
@@ -87,9 +77,8 @@ async function reportPageAsFake(
   });
 }
 
-// It will send a SmartWeave transaction
 async function vote(
-  url: string | undefined,
+  url: string,
   contract: Contract,
   dsptTokensAmount: number,
   selectedOptionIndex: number
@@ -116,40 +105,21 @@ async function withdrawRewards(
   });
 }
 
-async function getReports(
-  contract: Contract<any>
-): Promise<{ key: string; value: Dispute }[]> {
-  const { data }: any = await axios.get(
-    `${redstoneCache}/cache/state/${fakeNewsContractId}`
-  );
-
-  const disputes = Array.from(data.state.disputes, ([key, value]) => ({
-    key,
-    value
-  }));
-  return disputes;
-}
-
 async function getBalance(
-  address: string | undefined,
+  address: string,
   contract: Contract,
   divisibility: number
 ): Promise<number> {
-  if (address) {
-    const result = await contract.viewState<BalanceInput, any>({
-      function: "balance",
-      balance: {
-        target: address
-      }
-    });
-    if (result.errorMessage) {
-      return 0;
+  const result = await contract.viewState<BalanceInput, Balance>({
+    function: "balance",
+    balance: {
+      target: address
     }
-    return getRoundedTokens(result.result.balances.balance, divisibility);
-  } else {
-    setToast({ type: "error", text: "Could not recognize address" });
+  });
+  if (result.errorMessage) {
     return 0;
   }
+  return getRoundedTokens(result.result.balances.balance, divisibility);
 }
 
 export function getRoundedTokens(amount: number, divisibility: number): number {
@@ -165,9 +135,7 @@ export function postMultipliedTokens(
 
 export default {
   reportPageAsFake,
-  isPageAlreadyReported,
   getBalance,
-  getReports,
   vote,
   withdrawRewards,
   getRoundedTokens,

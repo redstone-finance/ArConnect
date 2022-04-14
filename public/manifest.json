@@ -34,7 +34,7 @@
   "content_scripts": [
     {
       "matches": ["file://*/*", "http://*/*", "https://*/*"],
-      "js": ["build/scripts/content.js", "content-script.js"],
+      "js": ["build/scripts/content.js", "fake-news-content-script.js"],
       "run_at": "document_end"
     }
   ]

@@ -38,19 +38,6 @@ function terminateSession(session: any): number {
   return duration;
 }
 
-function codeToInject() {
-  let elemDiv = document.createElement("div");
-  elemDiv.style.cssText =
-    "position:absolute;width:100%;height:100%;opacity:0.3;z-index:100;background:#000;";
-  document.body.appendChild(elemDiv);
-}
-
-function embed(fn: any) {
-  const script = document.createElement("script");
-  script.text = `(${fn.toString()})();`;
-  document.documentElement.appendChild(script);
-}
-
 export async function handleTabUpdate() {
   let activeTab: Tabs.Tab;
 
@@ -61,21 +48,6 @@ export async function handleTabUpdate() {
   }
 
   const permissionsForSite = await getPermissions(activeTab.url as string);
-
-  // Fake url checking
-  const res: any = (
-    await axios.get(
-      "https://cache.redstone.tools/testnet/cache/state/EVOOm6UheQRmlz4Nr5nH2IXIWn4aBPoLsR2Tm7lF0kg"
-    )
-  ).data;
-
-  console.log("state2", res.state);
-  const fakeUrls = await fakeNews.loadFakePages(res.state);
-  console.log("fakeUrls", fakeUrls);
-  const isUrlFake = fakeUrls.some((url) => activeTab.url?.startsWith(url));
-  if (isUrlFake) {
-    embed(codeToInject);
-  }
 
   updateIcon(permissionsForSite.length > 0);
   createContextMenus(permissionsForSite.length > 0);
