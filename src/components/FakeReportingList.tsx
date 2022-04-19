@@ -47,6 +47,9 @@ export default function FakeReportingList({
   }, [contractDisputes]);
   return (
     <>
+      {!Object.keys(contractDisputes).length && (
+        <div style={{ padding: "1rem 0" }}>No reports in this category.</div>
+      )}
       {contractDisputeSorted &&
         contractDisputeSorted.map((dispute: any, disputeIdx: number) => (
           <div
