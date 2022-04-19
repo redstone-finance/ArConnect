@@ -359,7 +359,7 @@ export default function FakeReporting({
                 }
                 target="_blank"
               >
-                SonAR
+                SonAR.
               </a>
             </div>
           </div>
