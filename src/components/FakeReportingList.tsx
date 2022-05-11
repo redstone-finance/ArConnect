@@ -6,6 +6,7 @@ import {
   getVotesSum,
   VoteOption
 } from "../background/fake_news";
+import { cursorTo } from "readline";
 
 interface Props {
   contractDisputes: ContractDispute;
@@ -13,7 +14,7 @@ interface Props {
   handler: any;
   divisibility: number;
   dsptTokenSymbol: string;
-  currentBlockHeight: number;
+  currentTimestamp: number;
   buttonClickedInVoteSection: any;
   buttonClickedInWithdrawRewardsSection: any;
   loading: any;
@@ -25,7 +26,7 @@ export default function FakeReportingList({
   handler,
   divisibility,
   dsptTokenSymbol,
-  currentBlockHeight,
+  currentTimestamp,
   buttonClickedInVoteSection,
   buttonClickedInWithdrawRewardsSection,
   loading
@@ -38,9 +39,9 @@ export default function FakeReportingList({
     }
 
     sortable.sort(function (a, b) {
-      return a[1].expirationBlock - currentBlockHeight <= 0
+      return a[1].expirationTimestamp - currentTimestamp <= 0
         ? a[0].localeCompare(b[0])
-        : a[1].expirationBlock - b[1].expirationBlock;
+        : a[1].expirationTimestamp - b[1].expirationTimestamp;
     });
 
     setContractDisputeSorted(sortable);
@@ -107,7 +108,8 @@ export default function FakeReportingList({
                           htmlType="number"
                           min="0"
                           disabled={
-                            dispute[1].expirationBlock - currentBlockHeight <= 0
+                            dispute[1].expirationTimestamp - currentTimestamp <=
+                            0
                           }
                         />
                       </div>
@@ -124,7 +126,7 @@ export default function FakeReportingList({
                     }}
                     type="success"
                     disabled={
-                      dispute[1].expirationBlock - currentBlockHeight <= 0
+                      dispute[1].expirationTimestamp - currentTimestamp <= 0
                     }
                     loading={
                       loading.vote[2 * disputeIdx + idx]
@@ -147,16 +149,17 @@ export default function FakeReportingList({
             ))}
             <div
               style={{
-                display: "flex",
-                justifyContent: "space-between"
+                textAlign: "center"
               }}
             >
-              <div style={{ alignItems: "center", display: "flex" }}>
-                <span>Blocks till withdraw: </span>
+              <div style={{ padding: "0.5rem" }}>
+                <span>Expiration time: </span>
                 <strong style={{ marginLeft: "0.25rem" }}>
-                  {dispute[1].expirationBlock - currentBlockHeight < 0
-                    ? 0
-                    : dispute[1].expirationBlock - currentBlockHeight}
+                  {dispute[1].expirationTimestamp - currentTimestamp < 0
+                    ? "Expired"
+                    : new Date(
+                        parseInt(dispute[1].expirationTimestamp)
+                      ).toLocaleString()}
                 </strong>
               </div>
 
@@ -164,7 +167,9 @@ export default function FakeReportingList({
                 <Button
                   style={{ minWidth: "auto", marginBottom: "10px" }}
                   type="success"
-                  disabled={dispute[1].expirationBlock - currentBlockHeight > 0}
+                  disabled={
+                    dispute[1].expirationTimestamp - currentTimestamp > 0
+                  }
                   onClick={() =>
                     buttonClickedInWithdrawRewardsSection(
                       dispute[0],

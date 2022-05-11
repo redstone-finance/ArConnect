@@ -22,7 +22,7 @@ export interface Dispute {
   description: string;
   options: string[];
   votes: VoteOption[];
-  expirationBlock: number;
+  expirationTimestamp: number;
   withdrawableAmounts: any;
   calculated: boolean;
   winningOption: string;
@@ -39,6 +39,7 @@ const EXPIRATION_BLOCK = 720;
 async function reportPageAsFake(
   url: string,
   contract: Contract,
+  dsptExpirationTimestamp: string,
   dsptTokensAmount?: number
 ): Promise<void> {
   await contract.bundleInteraction({
@@ -48,7 +49,7 @@ async function reportPageAsFake(
       title: url,
       description: url,
       options: ["fake", "legit"],
-      expirationBlocks: EXPIRATION_BLOCK,
+      expirationTimestamp: dsptExpirationTimestamp,
       ...(dsptTokensAmount
         ? {
             initialStakeAmount: {

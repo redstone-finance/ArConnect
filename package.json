@@ -31,7 +31,6 @@
     "chart.js": "^2.9.4",
     "copy-to-clipboard": "^3.3.1",
     "crypto-es": "^1.2.7",
-    "dayjs": "^1.10.4",
     "exchange-rates-api": "^1.0.2",
     "extensionizer": "^1.0.1",
     "framer-motion": "^3.10.6",

@@ -1,28 +1,37 @@
-import Arweave from "arweave";
-
-const arweave = Arweave.init({
-  host: "arweave.net",
-  port: 443,
-  protocol: "https"
-});
-
 async function checkTabForFakeNews() {
   const data = await getContractData();
-  const disputes = data.state.disputes;
-  const currentHeight = await loadBlockHeight();
 
+  const disputes = data.state.disputes;
+  const currentTimestamp = +Date.now();
+  console.log(currentTimestamp);
   const fakeUrls: string[] = [];
   const pendingUrls: string[] = [];
   Object.keys(disputes).forEach((d) => {
     if (disputes[d].winningOption == "fake") {
       fakeUrls.push(disputes[d].id);
     } else if (
-      disputes[d].expirationBlock > currentHeight &&
+      disputes[d].expirationTimestamp < currentTimestamp &&
+      disputes[d].winningOption == ""
+    ) {
+      let fakeSum = 0;
+      let legitSum = 0;
+      Object.keys(disputes[d].votes[0].votes).forEach(
+        (v) => (fakeSum += disputes[d].votes[0].votes[v])
+      );
+      Object.keys(disputes[d].votes[1].votes).forEach(
+        (v) => (legitSum += disputes[d].votes[0].votes[v])
+      );
+      if (fakeSum > legitSum) {
+        fakeUrls.push(disputes[d].id);
+      }
+    } else if (
+      disputes[d].expirationTimestamp > currentTimestamp &&
       disputes[d].winningOption == ""
     ) {
       pendingUrls.push(disputes[d].id);
     }
   });
+
   const isUrlFake = fakeUrls.some((url) =>
     document.location.href?.startsWith(url)
   );
@@ -66,18 +75,12 @@ function removeWarning() {
 
 async function getContractData() {
   const data = fetch(
-    `https://cache.redstone.tools/cache/state/pvudp_Wp8NMDJR6KUsQbzJJ27oLO4fAKXsnVQn86JbU`
+    `https://d2rkt3biev1br2.cloudfront.net/state?id=-ZyLeMEKzAfuseW-5CxZixpMdOiMBF7oZtg2sA_g5FI`
   ).then(async (res) => {
     const data = await res.json();
     return data;
   });
   return data;
-}
-
-async function loadBlockHeight() {
-  const info = await arweave.network.getInfo();
-  const currentHeight = info.height;
-  return currentHeight;
 }
 
 checkTabForFakeNews();

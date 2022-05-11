@@ -42,7 +42,7 @@ export default function App() {
     smartweave = SmartWeaveWebFactory.memCachedBased(arweave)
       .useRedStoneGateway()
       .build(),
-    fakeContractTxId = fakeNewsContractId;
+    fakeContractTxId = "-ZyLeMEKzAfuseW-5CxZixpMdOiMBF7oZtg2sA_g5FI";
 
   useEffect(() => {
     if (wallets.length === 0)
