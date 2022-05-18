@@ -39,10 +39,8 @@ export default function App() {
     [currentTabContentType, setCurrentTabContentType] = useState<
       "page" | "pdf" | undefined
     >("page"),
-    smartweave = SmartWeaveWebFactory.memCachedBased(arweave)
-      .useRedStoneGateway()
-      .build(),
-    fakeContractTxId = "-ZyLeMEKzAfuseW-5CxZixpMdOiMBF7oZtg2sA_g5FI";
+    smartweave = SmartWeaveWebFactory.memCachedBased(arweave).build(),
+    fakeContractTxId = "684ld6l9TfLdj4DYszP8l7fOc9kw5x5OuZD3NWuS46Q";
 
   useEffect(() => {
     if (wallets.length === 0)

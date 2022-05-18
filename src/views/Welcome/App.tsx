@@ -313,8 +313,8 @@ export default function App() {
             {!passwordGiven && (
               <div style={{ paddingTop: "1em" }}>
                 {walletsStore.length === 0
-                  ? "Please create a password to encrypt your keyfiles"
-                  : "Please enter your password"}
+                  ? "Please create a password to encrypt your keyfiles."
+                  : "Please enter your password."}
               </div>
             )}
           </div>

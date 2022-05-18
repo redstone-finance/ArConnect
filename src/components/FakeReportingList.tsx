@@ -157,8 +157,12 @@ export default function FakeReportingList({
                 <strong style={{ marginLeft: "0.25rem" }}>
                   {dispute[1].expirationTimestamp - currentTimestamp < 0
                     ? "Expired"
-                    : new Date(
+                    : dispute[1].expirationTimestamp.length == 13
+                    ? new Date(
                         parseInt(dispute[1].expirationTimestamp)
+                      ).toLocaleString()
+                    : new Date(
+                        parseInt(dispute[1].expirationTimestamp) * 1000
                       ).toLocaleString()}
                 </strong>
               </div>

@@ -25,6 +25,7 @@ import fakeNews, {
 import { getActiveTab } from "../../../utils/background";
 import { Contract, SmartWeave } from "redstone-smartweave";
 import FakeReportingList from "../../../components/FakeReportingList";
+import { fakeNewsContractId } from "../../../utils/constants";
 
 export interface FakeReporting {
   arweave: Arweave;
@@ -41,7 +42,9 @@ export default function FakeReporting({
 }: FakeReporting) {
   const dsptTokenSymbol = "TRUTH",
     dsptTokensAmount = useInput(""),
-    dsptExpirationTimestamp = useInput((+Date.now() + 86400000).toString()),
+    dsptExpirationTimestamp = useInput(
+      (Math.trunc(+Date.now() / 1000) + 86400).toString()
+    ),
     [waitingForConfirmation, setWaitingForConfirmation] = useState(false),
     profile = useSelector((state: RootState) => state.profile),
     wallets = useSelector((state: RootState) => state.wallets),
@@ -78,8 +81,9 @@ export default function FakeReporting({
 
   useEffect(() => {
     fetchContractDisputes();
-    setCurrentTimestamp(+Date.now());
+    setCurrentTimestamp(Math.trunc(+Date.now() / 1000));
     loadActiveTab();
+    console.log(+Date.now());
     // eslint-disable-next-line
   }, [profile]);
 
@@ -136,9 +140,9 @@ export default function FakeReporting({
     }
     let parsedExpirationTimestamp;
 
-    if (dsptExpirationTimestamp.length <= 10) {
-      parsedExpirationTimestamp = (
-        parseInt(dsptExpirationTimestamp) * 1000
+    if (dsptExpirationTimestamp.length == 13) {
+      parsedExpirationTimestamp = Math.trunc(
+        parseInt(dsptExpirationTimestamp) / 1000
       ).toString();
     } else {
       parsedExpirationTimestamp = dsptExpirationTimestamp;
@@ -151,7 +155,9 @@ export default function FakeReporting({
         });
         return;
       }
-      if (parseInt(parsedExpirationTimestamp) <= +Date.now()) {
+      if (
+        parseInt(parsedExpirationTimestamp) <= Math.trunc(+Date.now() / 1000)
+      ) {
         setToast({
           type: "error",
           text: "Expiration timestamp should be set to future!"
@@ -316,6 +322,7 @@ export default function FakeReporting({
   }
 
   const countVotesSumForLabel = (dispute: Dispute, label: string) => {
+    console.log("dispute", dispute);
     return fakeNews.getVotesSum(
       dispute.votes.find((v: VoteOption) => v.label == label)!.votes,
       divisibility
@@ -379,9 +386,7 @@ export default function FakeReporting({
               Verify contract in
               <a
                 style={{ paddingLeft: "0.25rem" }}
-                href={
-                  "https://sonar.redstone.tools/#/app/contract/-ZyLeMEKzAfuseW-5CxZixpMdOiMBF7oZtg2sA_g5FI"
-                }
+                href={`https://sonar.redstone.tools/#/app/contract/${fakeNewsContractId}`}
                 target="_blank"
               >
                 SonAR.

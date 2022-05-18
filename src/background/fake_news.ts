@@ -1,6 +1,6 @@
 import axios from "axios";
 import { Contract } from "redstone-smartweave";
-import { den, fakeNewsContractId } from "../utils/constants";
+import { den, redstoneCache, fakeNewsContractId } from "../utils/constants";
 
 export interface ContractDispute {
   [id: string]: Dispute;
@@ -53,7 +53,7 @@ async function reportPageAsFake(
       ...(dsptTokensAmount
         ? {
             initialStakeAmount: {
-              amount: dsptTokensAmount,
+              amount: dsptTokensAmount.toString(),
               optionIndex: 0
             }
           }
@@ -73,7 +73,7 @@ async function vote(
     vote: {
       id: url,
       selectedOptionIndex: selectedOptionIndex,
-      stakeAmount: dsptTokensAmount
+      stakeAmount: dsptTokensAmount.toString()
     }
   });
 }
@@ -117,8 +117,13 @@ export function postMultipliedTokens(
 }
 
 export function getVotesSum(votes: object, divisibility: number): number {
-  const sum = [...Object.values(votes)].reduce((a, b) => a + b, 0);
-  return getRoundedTokens(sum, divisibility);
+  let votesList: any[] = [];
+
+  for (const key in votes) {
+    votesList.push(parseInt(votes[key].quadraticAmount));
+  }
+  const sum = [...votesList].reduce((a, b) => a + b, 0);
+  return sum;
 }
 
 export const filterObject = (obj: any, predicate: any) =>
