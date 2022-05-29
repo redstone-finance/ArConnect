@@ -43,7 +43,6 @@ export default function FakeReportingList({
         ? a[0].localeCompare(b[0])
         : a[1].expirationTimestamp - b[1].expirationTimestamp;
     });
-
     setContractDisputeSorted(sortable);
   }, [contractDisputes]);
   return (

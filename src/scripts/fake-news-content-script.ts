@@ -2,8 +2,7 @@ async function checkTabForFakeNews() {
   const data = await getContractData();
 
   const disputes = data.state.disputes;
-  const currentTimestamp = +Date.now();
-  console.log(currentTimestamp);
+  const currentTimestamp = Math.trunc(+Date.now() / 1000);
   const fakeUrls: string[] = [];
   const pendingUrls: string[] = [];
   Object.keys(disputes).forEach((d) => {
@@ -16,10 +15,12 @@ async function checkTabForFakeNews() {
       let fakeSum = 0;
       let legitSum = 0;
       Object.keys(disputes[d].votes[0].votes).forEach(
-        (v) => (fakeSum += disputes[d].votes[0].votes[v])
+        (v) =>
+          (fakeSum += parseInt(disputes[d].votes[0].votes[v].quadraticAmount))
       );
       Object.keys(disputes[d].votes[1].votes).forEach(
-        (v) => (legitSum += disputes[d].votes[0].votes[v])
+        (v) =>
+          (legitSum += parseInt(disputes[d].votes[0].votes[v].quadraticAmount))
       );
       if (fakeSum > legitSum) {
         fakeUrls.push(disputes[d].id);

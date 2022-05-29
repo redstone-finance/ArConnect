@@ -83,7 +83,6 @@ export default function FakeReporting({
     fetchContractDisputes();
     setCurrentTimestamp(Math.trunc(+Date.now() / 1000));
     loadActiveTab();
-    console.log(+Date.now());
     // eslint-disable-next-line
   }, [profile]);
 
@@ -322,7 +321,6 @@ export default function FakeReporting({
   }
 
   const countVotesSumForLabel = (dispute: Dispute, label: string) => {
-    console.log("dispute", dispute);
     return fakeNews.getVotesSum(
       dispute.votes.find((v: VoteOption) => v.label == label)!.votes,
       divisibility
@@ -518,7 +516,9 @@ export default function FakeReporting({
                     contractDisputes={fakeNews.filterObject(
                       contractDisputes,
                       (dispute: Dispute) =>
-                        dispute.expirationTimestamp - currentTimestamp > 0
+                        dispute.expirationTimestamp - currentTimestamp > 0 &&
+                        dispute.description !=
+                          "https://www.nts.live/shows/moxie"
                     )}
                     value={value}
                     handler={handler}
