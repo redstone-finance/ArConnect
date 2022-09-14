@@ -9,7 +9,8 @@ import {
   ArrowSwitchIcon,
   ArchiveIcon,
   ChevronDownIcon,
-  ChevronUpIcon
+  ChevronUpIcon,
+  UnverifiedIcon
 } from "@primer/octicons-react";
 import { Loading, Spacer, Tabs, Tooltip, useTheme } from "@geist-ui/react";
 import { setAssets, setBalance } from "../../../stores/actions";
@@ -25,12 +26,14 @@ import axios from "axios";
 import PST from "./PST";
 import WalletManager from "../../../components/WalletManager";
 import Send from "./Send";
+import FakeReporting from "./FakeReporting";
 import Arweave from "arweave";
 import Verto from "@verto/lib";
 import arweaveLogo from "../../../assets/arweave.png";
 import verto_light_logo from "../../../assets/verto_light.png";
 import verto_dark_logo from "../../../assets/verto_dark.png";
 import styles from "../../../styles/views/Popup/home.module.sass";
+import { JWKInterface } from "arbundles/src/interface-jwk";
 
 export default function Home() {
   const arweaveConfig = useSelector((state: RootState) => state.arweave),
@@ -295,6 +298,7 @@ export default function Home() {
               <span>Archive {currentTabContentType ?? "page"}</span>
             </div>
           </ArchiveWrapper>
+
           <Tooltip text="Not available yet">
             <div
               className={
